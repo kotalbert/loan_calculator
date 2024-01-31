@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 )
 
@@ -15,7 +16,6 @@ const (
 	Payment CalcOption = iota
 	Principal
 	Periods
-	Interest
 )
 
 func main() {
@@ -33,42 +33,54 @@ func main() {
 	case Periods:
 		periodsResult := getPeriods(*principal, *payment, *interest)
 		fmt.Println(periodsResult)
-	case Interest:
-		interestResult := getInterest(*principal, *payment, *periods)
-		fmt.Println(interestResult)
 	}
 
 }
 
-func getInterest(principal int, payment int, periods int) int {
-	return -999
-}
-
 func getPeriods(principal int, payment int, interest int) int {
-	return -999
+	i := getMonthlyInterestRate(interest)
+	a := float64(payment) // annuity payment
+	p := float64(principal)
+
+	n := math.Log(a/(a-i*p)) / math.Log(1+i)
+
+	return int(math.Ceil(n))
 }
 
 func getPrincipal(payment int, periods int, interest int) int {
-	return -999
+	a := float64(payment)
+	n := float64(periods)
+	i := getMonthlyInterestRate(interest)
+
+	p := a / ((i * math.Pow(1+i, n)) / (math.Pow(1+i, n) - 1))
+
+	return int(math.Ceil(p))
 }
 
 func getPayment(principal int, periods int, interest int) int {
-	return -999
+	p := float64(principal)
+	i := getMonthlyInterestRate(interest)
+	n := float64(periods)
+
+	payment := p * (i * math.Pow(1+i, n)) / (math.Pow(1+i, n) - 1)
+	return int(math.Ceil(payment))
+
+}
+
+func getMonthlyInterestRate(interest int) float64 {
+	return float64(interest) / (12.0 * 100)
 }
 
 // whatCalcWe is a function to find which flag is not unset from default -1.
 // It will return my enum, to use in a switch statement.
-func whatCalcWe(payment *int, principal *int, periods *int, interest *int) CalcOption {
+func whatCalcWe(payment *int, principal *int) CalcOption {
 	if *payment < 0 {
 		return Payment
 	}
 	if *principal < 0 {
 		return Principal
 	}
-	if *periods < 0 {
-		return Periods
-	}
-	return Interest
+	return Periods
 }
 
 func parseArguments() (*int, *int, *int, *int) {
