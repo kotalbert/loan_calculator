@@ -21,7 +21,7 @@ const (
 func main() {
 	payment, principal, periods, interest := parseArguments()
 
-	calcOption := whatCalcWe(payment, principal, periods, interest)
+	calcOption := whatCalcWe(payment, principal)
 
 	switch calcOption {
 	case Payment:
@@ -37,43 +37,37 @@ func main() {
 
 }
 
-func getPeriods(principal int, payment int, interest int) int {
+func getPeriods(principal float64, payment float64, interest float64) int {
 	i := getMonthlyInterestRate(interest)
-	a := float64(payment) // annuity payment
-	p := float64(principal)
 
-	n := math.Log(a/(a-i*p)) / math.Log(1+i)
+	n := math.Log(payment/(payment-i*principal)) / math.Log(1+i)
 
 	return int(math.Ceil(n))
 }
 
-func getPrincipal(payment int, periods int, interest int) int {
-	a := float64(payment)
-	n := float64(periods)
+func getPrincipal(payment float64, periods float64, interest float64) int {
 	i := getMonthlyInterestRate(interest)
 
-	p := a / ((i * math.Pow(1+i, n)) / (math.Pow(1+i, n) - 1))
+	p := payment / ((i * math.Pow(1+i, periods)) / (math.Pow(1+i, periods) - 1))
 
 	return int(math.Ceil(p))
 }
 
-func getPayment(principal int, periods int, interest int) int {
-	p := float64(principal)
+func getPayment(principal float64, periods float64, interest float64) int {
 	i := getMonthlyInterestRate(interest)
-	n := float64(periods)
 
-	payment := p * (i * math.Pow(1+i, n)) / (math.Pow(1+i, n) - 1)
+	payment := principal * (i * math.Pow(1+i, periods)) / (math.Pow(1+i, periods) - 1)
 	return int(math.Ceil(payment))
 
 }
 
-func getMonthlyInterestRate(interest int) float64 {
-	return float64(interest) / (12.0 * 100)
+func getMonthlyInterestRate(interest float64) float64 {
+	return interest / (12.0 * 100)
 }
 
 // whatCalcWe is a function to find which flag is not unset from default -1.
 // It will return my enum, to use in a switch statement.
-func whatCalcWe(payment *int, principal *int) CalcOption {
+func whatCalcWe(payment *float64, principal *float64) CalcOption {
 	if *payment < 0 {
 		return Payment
 	}
@@ -83,7 +77,7 @@ func whatCalcWe(payment *int, principal *int) CalcOption {
 	return Periods
 }
 
-func parseArguments() (*int, *int, *int, *int) {
+func parseArguments() (*float64, *float64, *float64, *float64) {
 
 	err := checkArgsNumber()
 
@@ -91,10 +85,10 @@ func parseArguments() (*int, *int, *int, *int) {
 		log.Fatal(err)
 	}
 
-	payment := flag.Int("payment", -1, "payment amount")
-	principal := flag.Int("principal", -1, "loan principal")
-	periods := flag.Int("periods", -1, "number of months needed to repay the loan")
-	interest := flag.Int("interest", -1, "loan interest")
+	payment := flag.Float64("payment", -1, "payment amount")
+	principal := flag.Float64("principal", -1, "loan principal")
+	periods := flag.Float64("periods", -1, "number of months needed to repay the loan")
+	interest := flag.Float64("interest", -1, "loan interest")
 
 	flag.Parse()
 	return payment, principal, periods, interest
