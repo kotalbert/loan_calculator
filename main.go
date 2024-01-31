@@ -1,12 +1,9 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"math"
-	"os"
 )
 
 // CalcOption will be my enum to track what I'm calculating
@@ -26,10 +23,10 @@ func main() {
 	switch calcOption {
 	case Payment:
 		paymentResult := getPayment(*principal, *periods, *interest)
-		fmt.Println(paymentResult)
+		fmt.Printf("Your monthly payment = %d!\n!", paymentResult)
 	case Principal:
 		principalResult := getPrincipal(*payment, *periods, *interest)
-		fmt.Println(principalResult)
+		fmt.Printf("Your loan principal = %d!\n", principalResult)
 	case Periods:
 		periodsResult := getPeriods(*principal, *payment, *interest)
 		outputPeriodsResult(periodsResult)
@@ -92,12 +89,6 @@ func whatCalcWe(payment *float64, principal *float64) CalcOption {
 
 func parseArguments() (*float64, *float64, *float64, *float64) {
 
-	err := checkArgsNumber()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	payment := flag.Float64("payment", -1, "payment amount")
 	principal := flag.Float64("principal", -1, "loan principal")
 	periods := flag.Float64("periods", -1, "number of months needed to repay the loan")
@@ -105,11 +96,4 @@ func parseArguments() (*float64, *float64, *float64, *float64) {
 
 	flag.Parse()
 	return payment, principal, periods, interest
-}
-
-func checkArgsNumber() error {
-	if len(os.Args[1:]) != 6 {
-		return errors.New("expecting exactly three flags set")
-	}
-	return nil
 }
