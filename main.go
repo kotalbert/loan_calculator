@@ -32,9 +32,22 @@ func main() {
 		fmt.Println(principalResult)
 	case Periods:
 		periodsResult := getPeriods(*principal, *payment, *interest)
-		fmt.Println(periodsResult)
+		outputPeriodsResult(periodsResult)
+
 	}
 
+}
+
+func outputPeriodsResult(periods int) {
+	years := periods / 12
+	months := periods % 12
+	if months == 0 {
+		fmt.Printf("It will take %d years to repay this loan!\n", years)
+	} else if years == 0 {
+		fmt.Printf("It will take %d months to repay this loan!\n", months)
+	} else {
+		fmt.Printf("It will take %d years and %d months to repay this loan!\n", years, months)
+	}
 }
 
 func getPeriods(principal float64, payment float64, interest float64) int {
