@@ -3,20 +3,33 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"math"
 )
 
 // CalcOption will be my enum to track what I'm calculating
 type CalcOption int
 
+// todo: include diff type calculation
 const (
 	Payment CalcOption = iota
 	Principal
 	Periods
 )
 
+type CalcType int
+
+const (
+	Annuity CalcType = iota
+	Diff
+)
+
 func main() {
-	payment, principal, periods, interest, _ := parseArguments()
+	payment, principal, periods, interest, calcType, err := parseArguments()
+
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	calcOption := whatCalcWe(payment, principal)
 
@@ -87,20 +100,33 @@ func whatCalcWe(payment *float64, principal *float64) CalcOption {
 	return Periods
 }
 
-func parseArguments() (*float64, *float64, *float64, *float64, *string) {
+func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 
 	payment := flag.Float64("payment", -1, "payment amount")
 	principal := flag.Float64("principal", -1, "loan principal")
 	periods := flag.Float64("periods", -1, "number of months needed to repay the loan")
 	interest := flag.Float64("interest", -1, "loan interest")
 	calcType := flag.String("type", "", "type of calculation, must be either 'annuity' or 'diff'")
+
 	flag.Parse()
-	// todo: add validation for --type flag:
-	// 	it should be either 'annuity' or 'diff'
+
+	if err := validateTypeFlag(*calcType); err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 	// todo: add validation if --type is diff and --payment is not set
 	// todo: add validation if --type is diff and all other flags are set
 	// todo: add validation if --type is annuity and exactly 4 of the flags are set
 	// todo: add validation if --interest is always provided
 	// todo: add validation that all the values are positive
-	return payment, principal, periods, interest, calcType
+	return payment, principal, periods, interest, calcType, nil
+}
+
+// validateTypeFlag validation for --type flag;
+//
+//	it should be either 'annuity' or 'diff'
+func validateTypeFlag(calcType string) error {
+	if calcType != "annuity" && calcType != "diff" {
+		return fmt.Errorf("invalid type flag value: %s", calcType)
+	}
+	return nil
 }
