@@ -180,7 +180,7 @@ func validateAllFlagsSetExceptOneWhenTypeIsAnnuity(calcType string, principal fl
 		if interest != defaultFlagValue {
 			setFlags++
 		}
-		if setFlags != 4 {
+		if setFlags != 3 {
 			return fmt.Errorf("exactly 4 of 5 flags should be set when --type is annuity")
 		}
 	}
