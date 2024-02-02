@@ -17,15 +17,11 @@ const (
 	Periods
 )
 
-type CalcType int
-
-const (
-	Annuity CalcType = iota
-	Diff
-)
+// I will use this to test if flag is set or not
+const defaultFlagValue = -1
 
 func main() {
-	payment, principal, periods, interest, calcType, err := parseArguments()
+	payment, principal, periods, interest, _, err := parseArguments()
 
 	if err != nil {
 		log.Fatal(err)
@@ -102,10 +98,10 @@ func whatCalcWe(payment *float64, principal *float64) CalcOption {
 
 func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 
-	payment := flag.Float64("payment", -1, "payment amount")
-	principal := flag.Float64("principal", -1, "loan principal")
-	periods := flag.Float64("periods", -1, "number of months needed to repay the loan")
-	interest := flag.Float64("interest", -1, "loan interest")
+	payment := flag.Float64("payment", defaultFlagValue, "payment amount")
+	principal := flag.Float64("principal", defaultFlagValue, "loan principal")
+	periods := flag.Float64("periods", defaultFlagValue, "number of months needed to repay the loan")
+	interest := flag.Float64("interest", defaultFlagValue, "loan interest")
 	calcType := flag.String("type", "", "type of calculation, must be either 'annuity' or 'diff'")
 
 	flag.Parse()
@@ -113,9 +109,15 @@ func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 	if err := validateTypeFlag(*calcType); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	// todo: add validation if --type is diff and --payment is not set
-	// todo: add validation if --type is diff and all other flags are set
-	// todo: add validation if --type is annuity and exactly 4 of the flags are set
+	if err := validatePaymentFlag(*calcType, *payment); err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
+	if err := validateAllFlagsSetWhenTypeIsDiff(*calcType, *principal, *periods); err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
+	if err := validateAllFlagsSetExceptOneWhenTypeIsAnnuity(*calcType, *principal, *periods, *payment, *interest); err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 	// todo: add validation if --interest is always provided
 	// todo: add validation that all the values are positive
 	return payment, principal, periods, interest, calcType, nil
@@ -125,8 +127,57 @@ func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 //
 //	it should be either 'annuity' or 'diff'
 func validateTypeFlag(calcType string) error {
+	if calcType == "" {
+		return fmt.Errorf("type flag is not set")
+	}
 	if calcType != "annuity" && calcType != "diff" {
 		return fmt.Errorf("invalid type flag value: %s", calcType)
 	}
 	return nil
+}
+
+// validatePaymentFlag validation for --payment flag;
+//
+//	it should not be set when type is diff
+func validatePaymentFlag(calcType string, payment float64) error {
+	if calcType == "diff" && payment != -1 {
+		return fmt.Errorf("payment flag should not be set when type is diff")
+	}
+	return nil
+}
+
+// validateAllFlagsSetWhenTypeIsDiff validation for --type flag == diff;
+//
+//	all flags should be set, except --payment
+func validateAllFlagsSetWhenTypeIsDiff(calcType string, principal float64, periods float64) error {
+	if calcType == "diff" && (principal == defaultFlagValue || periods == defaultFlagValue) {
+		return fmt.Errorf("all flags, except --payment, should be set, when --type is diff")
+	}
+	return nil
+}
+
+// validateAllFlagsSetExceptOneWhenTypeIsAnnuity validation for --type flag == annuity;
+//
+//	exactly 4 of 5 flags should be set
+func validateAllFlagsSetExceptOneWhenTypeIsAnnuity(calcType string, principal float64, periods float64, payment float64, interest float64) error {
+	if calcType == "annuity" {
+		setFlags := 0
+		if principal != defaultFlagValue {
+			setFlags++
+		}
+		if periods != defaultFlagValue {
+			setFlags++
+		}
+		if payment != defaultFlagValue {
+			setFlags++
+		}
+		if interest != defaultFlagValue {
+			setFlags++
+		}
+		if setFlags != 4 {
+			return fmt.Errorf("exactly 4 of 5 flags should be set when --type is annuity")
+		}
+	}
+	return nil
+
 }
