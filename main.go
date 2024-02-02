@@ -118,8 +118,14 @@ func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 	if err := validateAllFlagsSetExceptOneWhenTypeIsAnnuity(*calcType, *principal, *periods, *payment, *interest); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	// todo: add validation if --interest is always provided
-	// todo: add validation that all the values are positive
+	if err := validateInterestFlag(*interest); err != nil {
+		return nil, nil, nil, nil, nil, err
+
+	}
+	if err := validatePositiveFlagValues(*payment, *principal, *periods, *interest); err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
+
 	return payment, principal, periods, interest, calcType, nil
 }
 
@@ -180,4 +186,22 @@ func validateAllFlagsSetExceptOneWhenTypeIsAnnuity(calcType string, principal fl
 	}
 	return nil
 
+}
+
+func validateInterestFlag(interest float64) error {
+	if interest == defaultFlagValue {
+		return fmt.Errorf("interest flag is not set")
+	}
+	return nil
+}
+
+// validatePositiveFlagValues validation for all the flags;
+//
+//	will check if none of the flags has value less than defaultFlagValue.
+//	potentially it will not catch edge case when value -1 is passed
+func validatePositiveFlagValues(payment float64, principal float64, periods float64, interest float64) error {
+	if payment < defaultFlagValue || principal < defaultFlagValue || periods < defaultFlagValue || interest < defaultFlagValue {
+		return fmt.Errorf("all the values should be positive")
+	}
+	return nil
 }
