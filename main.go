@@ -1,17 +1,18 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"math"
 )
 
-// CalcOption will be my enum to track what I'm calculating
-type CalcOption int
+// AnnuityTypeCalculatedParameter will be my enum to track what I'm calculating, when `--type` flag is set to `annuity`
+type AnnuityTypeCalculatedParameter int
 
 const (
-	Payment CalcOption = iota
+	Payment AnnuityTypeCalculatedParameter = iota
 	Principal
 	Periods
 )
@@ -27,22 +28,32 @@ const (
 const defaultFlagValue = -1
 
 func main() {
-	payment, principal, periods, interest, _, err := parseArguments()
+	payment, principal, periods, interest, paymentType, err := parseArguments()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	calcOption := whatCalcWe(payment, principal)
-
-	calculateAnnuityType(calcOption, principal, periods, interest, payment)
+	switch *paymentType {
+	case Differentiate:
+		calculateDifferentiateTypeLoanValues(principal, periods, interest)
+	default:
+		calculateAnnuityTypeLoanValues(principal, periods, interest, payment)
+	}
 
 }
 
-// calculateAnnuityType handles the logic for calculating the annuity payment, principal or periods
+func calculateDifferentiateTypeLoanValues(principal *float64, periods *float64, interest *float64) {
+	// todo: implement
+}
+
+// calculateAnnuityTypeLoanValues handles the logic for calculating the annuity payment, principal or periods
 //
-// this logic is applied when `--type` flag is set to `annuity`
-func calculateAnnuityType(calcOption CalcOption, principal *float64, periods *float64, interest *float64, payment *float64) {
+// this logic is applied when `--type` flag is set to `annuity`; it also decides
+// if we are calculating payment, principal or periods, based on what flags are set
+func calculateAnnuityTypeLoanValues(principal *float64, periods *float64, interest *float64, payment *float64) {
+
+	calcOption := whatCalcWe(payment, principal)
 	switch calcOption {
 	case Payment:
 		paymentResult := getPayment(*principal, *periods, *interest)
@@ -99,7 +110,7 @@ func getMonthlyInterestRate(interest float64) float64 {
 
 // whatCalcWe is a function to find which flag is not unset from default -1.
 // It will return my enum, to use in a switch statement.
-func whatCalcWe(payment *float64, principal *float64) CalcOption {
+func whatCalcWe(payment *float64, principal *float64) AnnuityTypeCalculatedParameter {
 	if *payment < 0 {
 		return Payment
 	}
@@ -158,10 +169,10 @@ func parseArguments() (*float64, *float64, *float64, *float64, *PaymentType, err
 //	it should be either 'annuity' or 'diff'
 func validateTypeFlag(calcType string) error {
 	if calcType == "" {
-		return fmt.Errorf("type flag is not set")
+		return errors.New("incorrect parameters")
 	}
 	if calcType != "annuity" && calcType != "diff" {
-		return fmt.Errorf("invalid type flag value: %s", calcType)
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -171,7 +182,7 @@ func validateTypeFlag(calcType string) error {
 //	it should not be set when type is diff
 func validatePaymentFlag(calcType string, payment float64) error {
 	if calcType == "diff" && payment != -1 {
-		return fmt.Errorf("payment flag should not be set when type is diff")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -181,7 +192,7 @@ func validatePaymentFlag(calcType string, payment float64) error {
 //	all flags should be set, except --payment
 func validateAllFlagsSetWhenTypeIsDiff(calcType string, principal float64, periods float64) error {
 	if calcType == "diff" && (principal == defaultFlagValue || periods == defaultFlagValue) {
-		return fmt.Errorf("all flags, except --payment, should be set, when --type is diff")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -205,7 +216,7 @@ func validateAllFlagsSetExceptOneWhenTypeIsAnnuity(calcType string, principal fl
 			setFlags++
 		}
 		if setFlags != 3 {
-			return fmt.Errorf("exactly 4 of 5 flags should be set when --type is annuity")
+			return errors.New("incorrect parameters")
 		}
 	}
 	return nil
@@ -214,7 +225,7 @@ func validateAllFlagsSetExceptOneWhenTypeIsAnnuity(calcType string, principal fl
 
 func validateInterestFlag(interest float64) error {
 	if interest == defaultFlagValue {
-		return fmt.Errorf("interest flag is not set")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -225,7 +236,7 @@ func validateInterestFlag(interest float64) error {
 //	potentially it will not catch edge case when value -1 is passed
 func validatePositiveFlagValues(payment float64, principal float64, periods float64, interest float64) error {
 	if payment < defaultFlagValue || principal < defaultFlagValue || periods < defaultFlagValue || interest < defaultFlagValue {
-		return fmt.Errorf("all the values should be positive")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
