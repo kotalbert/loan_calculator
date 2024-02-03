@@ -10,11 +10,17 @@ import (
 // CalcOption will be my enum to track what I'm calculating
 type CalcOption int
 
-// todo: include diff type calculation
 const (
 	Payment CalcOption = iota
 	Principal
 	Periods
+)
+
+type PaymentType int
+
+const (
+	Annuity = iota
+	Differentiate
 )
 
 // I will use this to test if flag is set or not
@@ -29,6 +35,14 @@ func main() {
 
 	calcOption := whatCalcWe(payment, principal)
 
+	calculateAnnuityType(calcOption, principal, periods, interest, payment)
+
+}
+
+// calculateAnnuityType handles the logic for calculating the annuity payment, principal or periods
+//
+// this logic is applied when `--type` flag is set to `annuity`
+func calculateAnnuityType(calcOption CalcOption, principal *float64, periods *float64, interest *float64, payment *float64) {
 	switch calcOption {
 	case Payment:
 		paymentResult := getPayment(*principal, *periods, *interest)
@@ -41,7 +55,6 @@ func main() {
 		outputPeriodsResult(periodsResult)
 
 	}
-
 }
 
 func outputPeriodsResult(periods int) {
@@ -96,26 +109,29 @@ func whatCalcWe(payment *float64, principal *float64) CalcOption {
 	return Periods
 }
 
-func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
+// parseArguments parses the command line arguments, validates them and returns pointers to the values
+//
+//	will return error if any of the validation fails
+func parseArguments() (*float64, *float64, *float64, *float64, *PaymentType, error) {
 
 	payment := flag.Float64("payment", defaultFlagValue, "payment amount")
 	principal := flag.Float64("principal", defaultFlagValue, "loan principal")
 	periods := flag.Float64("periods", defaultFlagValue, "number of months needed to repay the loan")
 	interest := flag.Float64("interest", defaultFlagValue, "loan interest")
-	calcType := flag.String("type", "", "type of calculation, must be either 'annuity' or 'diff'")
+	typeFlagValue := flag.String("type", "", "type of calculation, must be either 'annuity' or 'diff'")
 
 	flag.Parse()
 
-	if err := validateTypeFlag(*calcType); err != nil {
+	if err := validateTypeFlag(*typeFlagValue); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if err := validatePaymentFlag(*calcType, *payment); err != nil {
+	if err := validatePaymentFlag(*typeFlagValue, *payment); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if err := validateAllFlagsSetWhenTypeIsDiff(*calcType, *principal, *periods); err != nil {
+	if err := validateAllFlagsSetWhenTypeIsDiff(*typeFlagValue, *principal, *periods); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if err := validateAllFlagsSetExceptOneWhenTypeIsAnnuity(*calcType, *principal, *periods, *payment, *interest); err != nil {
+	if err := validateAllFlagsSetExceptOneWhenTypeIsAnnuity(*typeFlagValue, *principal, *periods, *payment, *interest); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
 	if err := validateInterestFlag(*interest); err != nil {
@@ -126,7 +142,15 @@ func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 		return nil, nil, nil, nil, nil, err
 	}
 
-	return payment, principal, periods, interest, calcType, nil
+	// convert string to enum
+	var paymentType *PaymentType
+	if *typeFlagValue == "diff" {
+		*paymentType = Differentiate
+	} else {
+		*paymentType = Annuity
+	}
+
+	return payment, principal, periods, interest, paymentType, nil
 }
 
 // validateTypeFlag validation for --type flag;
