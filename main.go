@@ -54,11 +54,13 @@ func calculateDifferentiateTypeLoanValues(principal *float64, periods *float64, 
 		fmt.Printf("Month %d: payment is %d\n", m, d)
 		m++
 	}
+	// todo: implement overpayment calculation
 }
 
 // getDifferentiatePayment calculates the differentiate payment in the given month (m)
-func getDifferentiatePayment(principal float64, periods float64, interest float64, m int) interface{} {
-
+func getDifferentiatePayment(principal float64, periods float64, interest float64, m int) int {
+	dm := principal/periods + interest*(principal-(principal*(float64(m)-1))/periods)
+	return int(math.Ceil(dm))
 }
 
 // calculateAnnuityTypeLoanValues handles the logic for calculating the annuity payment, principal or periods
@@ -169,14 +171,14 @@ func parseArguments() (*float64, *float64, *float64, *float64, *PaymentType, err
 	}
 
 	// convert string to enum
-	var paymentType *PaymentType
+	var paymentType PaymentType
 	if *typeFlagValue == "diff" {
-		*paymentType = Differentiate
+		paymentType = Differentiate
 	} else {
-		*paymentType = Annuity
+		paymentType = Annuity
 	}
 
-	return payment, principal, periods, interest, paymentType, nil
+	return payment, principal, periods, interest, &paymentType, nil
 }
 
 // validateTypeFlag validation for --type flag;
