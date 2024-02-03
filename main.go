@@ -4,8 +4,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"math"
+	"os"
 )
 
 // AnnuityTypeCalculatedParameter will be my enum to track what I'm calculating, when `--type` flag is set to `annuity`
@@ -31,7 +31,8 @@ func main() {
 	payment, principal, periods, interest, paymentType, err := parseArguments()
 
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Incorrect parameters")
+		os.Exit(1)
 	}
 
 	switch *paymentType {
@@ -49,12 +50,15 @@ func main() {
 func calculateDifferentiateTypeLoanValues(principal *float64, periods *float64, interest *float64) {
 	mir := getMonthlyInterestRate(*interest)
 	m := 1
+	rps := 0 // sum of all differentiate payments
 	for i := 0; i < int(*periods); i++ {
 		d := getDifferentiatePayment(*principal, *periods, mir, m)
+		rps += d
 		fmt.Printf("Month %d: payment is %d\n", m, d)
 		m++
 	}
-	// todo: implement overpayment calculation
+	op := rps - int(*principal)
+	fmt.Printf("\nOverpayment = %d\n", op)
 }
 
 // getDifferentiatePayment calculates the differentiate payment in the given month (m)
@@ -70,18 +74,24 @@ func getDifferentiatePayment(principal float64, periods float64, interest float6
 func calculateAnnuityTypeLoanValues(principal *float64, periods *float64, interest *float64, payment *float64) {
 
 	calcOption := whatCalcWe(payment, principal)
+	var op int
 	switch calcOption {
 	case Payment:
 		paymentResult := getPayment(*principal, *periods, *interest)
 		fmt.Printf("Your monthly payment = %d!\n!", paymentResult)
+		op = paymentResult*int(*periods) - int(*principal)
 	case Principal:
 		principalResult := getPrincipal(*payment, *periods, *interest)
 		fmt.Printf("Your loan principal = %d!\n", principalResult)
+		op = int(*payment)*int(*periods) - principalResult
 	case Periods:
 		periodsResult := getPeriods(*principal, *payment, *interest)
 		outputPeriodsResult(periodsResult)
+		op = int(*payment)*periodsResult - int(*principal)
 
 	}
+	fmt.Printf("Overpayment = %d\n", op)
+
 }
 
 func outputPeriodsResult(periods int) {
