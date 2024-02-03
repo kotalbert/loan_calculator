@@ -1,46 +1,96 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"math"
+	"os"
 )
 
-// CalcOption will be my enum to track what I'm calculating
-type CalcOption int
+// AnnuityTypeCalculatedParameter will be my enum to track what I'm calculating, when `--type` flag is set to `annuity`
+type AnnuityTypeCalculatedParameter int
 
-// todo: include diff type calculation
 const (
-	Payment CalcOption = iota
+	Payment AnnuityTypeCalculatedParameter = iota
 	Principal
 	Periods
+)
+
+type PaymentType int
+
+const (
+	Annuity = iota
+	Differentiate
 )
 
 // I will use this to test if flag is set or not
 const defaultFlagValue = -1
 
 func main() {
-	payment, principal, periods, interest, _, err := parseArguments()
+	payment, principal, periods, interest, paymentType, err := parseArguments()
 
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Incorrect parameters")
+		os.Exit(1)
 	}
 
-	calcOption := whatCalcWe(payment, principal)
+	switch *paymentType {
+	case Differentiate:
+		calculateDifferentiateTypeLoanValues(principal, periods, interest)
+	default:
+		calculateAnnuityTypeLoanValues(principal, periods, interest, payment)
+	}
 
+}
+
+// calculateDifferentiateTypeLoanValues calculates the differentiate payment
+//
+//	over the time specified by the periods flag
+func calculateDifferentiateTypeLoanValues(principal *float64, periods *float64, interest *float64) {
+	mir := getMonthlyInterestRate(*interest)
+	m := 1
+	rps := 0 // sum of all differentiate payments
+	for i := 0; i < int(*periods); i++ {
+		d := getDifferentiatePayment(*principal, *periods, mir, m)
+		rps += d
+		fmt.Printf("Month %d: payment is %d\n", m, d)
+		m++
+	}
+	op := rps - int(*principal)
+	fmt.Printf("\nOverpayment = %d\n", op)
+}
+
+// getDifferentiatePayment calculates the differentiate payment in the given month (m)
+func getDifferentiatePayment(principal float64, periods float64, interest float64, m int) int {
+	dm := principal/periods + interest*(principal-(principal*(float64(m)-1))/periods)
+	return int(math.Ceil(dm))
+}
+
+// calculateAnnuityTypeLoanValues handles the logic for calculating the annuity payment, principal or periods
+//
+// this logic is applied when `--type` flag is set to `annuity`; it also decides
+// if we are calculating payment, principal or periods, based on what flags are set
+func calculateAnnuityTypeLoanValues(principal *float64, periods *float64, interest *float64, payment *float64) {
+
+	calcOption := whatCalcWe(payment, principal)
+	var op int
 	switch calcOption {
 	case Payment:
 		paymentResult := getPayment(*principal, *periods, *interest)
 		fmt.Printf("Your monthly payment = %d!\n!", paymentResult)
+		op = paymentResult*int(*periods) - int(*principal)
 	case Principal:
 		principalResult := getPrincipal(*payment, *periods, *interest)
 		fmt.Printf("Your loan principal = %d!\n", principalResult)
+		op = int(*payment)*int(*periods) - principalResult
 	case Periods:
 		periodsResult := getPeriods(*principal, *payment, *interest)
 		outputPeriodsResult(periodsResult)
+		op = int(*payment)*periodsResult - int(*principal)
 
 	}
+	fmt.Printf("Overpayment = %d\n", op)
 
 }
 
@@ -57,25 +107,25 @@ func outputPeriodsResult(periods int) {
 }
 
 func getPeriods(principal float64, payment float64, interest float64) int {
-	i := getMonthlyInterestRate(interest)
+	mir := getMonthlyInterestRate(interest)
 
-	n := math.Log(payment/(payment-i*principal)) / math.Log(1+i)
+	periods := math.Log(payment/(payment-mir*principal)) / math.Log(1+mir)
 
-	return int(math.Ceil(n))
+	return int(math.Ceil(periods))
 }
 
 func getPrincipal(payment float64, periods float64, interest float64) int {
-	i := getMonthlyInterestRate(interest)
+	mir := getMonthlyInterestRate(interest)
 
-	p := payment / ((i * math.Pow(1+i, periods)) / (math.Pow(1+i, periods) - 1))
+	pmt := payment / ((mir * math.Pow(1+mir, periods)) / (math.Pow(1+mir, periods) - 1))
 
-	return int(math.Ceil(p))
+	return int(math.Ceil(pmt))
 }
 
 func getPayment(principal float64, periods float64, interest float64) int {
-	i := getMonthlyInterestRate(interest)
+	mir := getMonthlyInterestRate(interest)
 
-	payment := principal * (i * math.Pow(1+i, periods)) / (math.Pow(1+i, periods) - 1)
+	payment := principal * (mir * math.Pow(1+mir, periods)) / (math.Pow(1+mir, periods) - 1)
 	return int(math.Ceil(payment))
 
 }
@@ -85,8 +135,9 @@ func getMonthlyInterestRate(interest float64) float64 {
 }
 
 // whatCalcWe is a function to find which flag is not unset from default -1.
-// It will return my enum, to use in a switch statement.
-func whatCalcWe(payment *float64, principal *float64) CalcOption {
+//
+//	It will return my enum, to use in a switch statement.
+func whatCalcWe(payment *float64, principal *float64) AnnuityTypeCalculatedParameter {
 	if *payment < 0 {
 		return Payment
 	}
@@ -96,26 +147,29 @@ func whatCalcWe(payment *float64, principal *float64) CalcOption {
 	return Periods
 }
 
-func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
+// parseArguments parses the command line arguments, validates them and returns pointers to the values
+//
+//	will return error if any of the validation fails
+func parseArguments() (*float64, *float64, *float64, *float64, *PaymentType, error) {
 
 	payment := flag.Float64("payment", defaultFlagValue, "payment amount")
 	principal := flag.Float64("principal", defaultFlagValue, "loan principal")
 	periods := flag.Float64("periods", defaultFlagValue, "number of months needed to repay the loan")
 	interest := flag.Float64("interest", defaultFlagValue, "loan interest")
-	calcType := flag.String("type", "", "type of calculation, must be either 'annuity' or 'diff'")
+	typeFlagValue := flag.String("type", "", "type of calculation, must be either 'annuity' or 'diff'")
 
 	flag.Parse()
 
-	if err := validateTypeFlag(*calcType); err != nil {
+	if err := validateTypeFlag(*typeFlagValue); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if err := validatePaymentFlag(*calcType, *payment); err != nil {
+	if err := validatePaymentFlag(*typeFlagValue, *payment); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if err := validateAllFlagsSetWhenTypeIsDiff(*calcType, *principal, *periods); err != nil {
+	if err := validateAllFlagsSetWhenTypeIsDiff(*typeFlagValue, *principal, *periods); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	if err := validateAllFlagsSetExceptOneWhenTypeIsAnnuity(*calcType, *principal, *periods, *payment, *interest); err != nil {
+	if err := validateAllFlagsSetExceptOneWhenTypeIsAnnuity(*typeFlagValue, *principal, *periods, *payment, *interest); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
 	if err := validateInterestFlag(*interest); err != nil {
@@ -126,7 +180,15 @@ func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 		return nil, nil, nil, nil, nil, err
 	}
 
-	return payment, principal, periods, interest, calcType, nil
+	// convert string to enum
+	var paymentType PaymentType
+	if *typeFlagValue == "diff" {
+		paymentType = Differentiate
+	} else {
+		paymentType = Annuity
+	}
+
+	return payment, principal, periods, interest, &paymentType, nil
 }
 
 // validateTypeFlag validation for --type flag;
@@ -134,10 +196,10 @@ func parseArguments() (*float64, *float64, *float64, *float64, *string, error) {
 //	it should be either 'annuity' or 'diff'
 func validateTypeFlag(calcType string) error {
 	if calcType == "" {
-		return fmt.Errorf("type flag is not set")
+		return errors.New("incorrect parameters")
 	}
 	if calcType != "annuity" && calcType != "diff" {
-		return fmt.Errorf("invalid type flag value: %s", calcType)
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -147,7 +209,7 @@ func validateTypeFlag(calcType string) error {
 //	it should not be set when type is diff
 func validatePaymentFlag(calcType string, payment float64) error {
 	if calcType == "diff" && payment != -1 {
-		return fmt.Errorf("payment flag should not be set when type is diff")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -157,7 +219,7 @@ func validatePaymentFlag(calcType string, payment float64) error {
 //	all flags should be set, except --payment
 func validateAllFlagsSetWhenTypeIsDiff(calcType string, principal float64, periods float64) error {
 	if calcType == "diff" && (principal == defaultFlagValue || periods == defaultFlagValue) {
-		return fmt.Errorf("all flags, except --payment, should be set, when --type is diff")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -181,7 +243,7 @@ func validateAllFlagsSetExceptOneWhenTypeIsAnnuity(calcType string, principal fl
 			setFlags++
 		}
 		if setFlags != 3 {
-			return fmt.Errorf("exactly 4 of 5 flags should be set when --type is annuity")
+			return errors.New("incorrect parameters")
 		}
 	}
 	return nil
@@ -190,7 +252,7 @@ func validateAllFlagsSetExceptOneWhenTypeIsAnnuity(calcType string, principal fl
 
 func validateInterestFlag(interest float64) error {
 	if interest == defaultFlagValue {
-		return fmt.Errorf("interest flag is not set")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
@@ -201,7 +263,7 @@ func validateInterestFlag(interest float64) error {
 //	potentially it will not catch edge case when value -1 is passed
 func validatePositiveFlagValues(payment float64, principal float64, periods float64, interest float64) error {
 	if payment < defaultFlagValue || principal < defaultFlagValue || periods < defaultFlagValue || interest < defaultFlagValue {
-		return fmt.Errorf("all the values should be positive")
+		return errors.New("incorrect parameters")
 	}
 	return nil
 }
