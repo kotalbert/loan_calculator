@@ -43,8 +43,22 @@ func main() {
 
 }
 
+// calculateDifferentiateTypeLoanValues calculates the differentiate payment
+//
+//	over the time specified by the periods flag
 func calculateDifferentiateTypeLoanValues(principal *float64, periods *float64, interest *float64) {
-	// todo: implement
+	mir := getMonthlyInterestRate(*interest)
+	m := 1
+	for i := 0; i < int(*periods); i++ {
+		d := getDifferentiatePayment(*principal, *periods, mir, m)
+		fmt.Printf("Month %d: payment is %d\n", m, d)
+		m++
+	}
+}
+
+// getDifferentiatePayment calculates the differentiate payment in the given month (m)
+func getDifferentiatePayment(principal float64, periods float64, interest float64, m int) interface{} {
+
 }
 
 // calculateAnnuityTypeLoanValues handles the logic for calculating the annuity payment, principal or periods
@@ -81,25 +95,25 @@ func outputPeriodsResult(periods int) {
 }
 
 func getPeriods(principal float64, payment float64, interest float64) int {
-	i := getMonthlyInterestRate(interest)
+	mir := getMonthlyInterestRate(interest)
 
-	n := math.Log(payment/(payment-i*principal)) / math.Log(1+i)
+	periods := math.Log(payment/(payment-mir*principal)) / math.Log(1+mir)
 
-	return int(math.Ceil(n))
+	return int(math.Ceil(periods))
 }
 
 func getPrincipal(payment float64, periods float64, interest float64) int {
-	i := getMonthlyInterestRate(interest)
+	mir := getMonthlyInterestRate(interest)
 
-	p := payment / ((i * math.Pow(1+i, periods)) / (math.Pow(1+i, periods) - 1))
+	pmt := payment / ((mir * math.Pow(1+mir, periods)) / (math.Pow(1+mir, periods) - 1))
 
-	return int(math.Ceil(p))
+	return int(math.Ceil(pmt))
 }
 
 func getPayment(principal float64, periods float64, interest float64) int {
-	i := getMonthlyInterestRate(interest)
+	mir := getMonthlyInterestRate(interest)
 
-	payment := principal * (i * math.Pow(1+i, periods)) / (math.Pow(1+i, periods) - 1)
+	payment := principal * (mir * math.Pow(1+mir, periods)) / (math.Pow(1+mir, periods) - 1)
 	return int(math.Ceil(payment))
 
 }
@@ -109,7 +123,8 @@ func getMonthlyInterestRate(interest float64) float64 {
 }
 
 // whatCalcWe is a function to find which flag is not unset from default -1.
-// It will return my enum, to use in a switch statement.
+//
+//	It will return my enum, to use in a switch statement.
 func whatCalcWe(payment *float64, principal *float64) AnnuityTypeCalculatedParameter {
 	if *payment < 0 {
 		return Payment
